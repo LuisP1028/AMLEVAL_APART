@@ -7,12 +7,14 @@ from keras.models import Sequential
 from keras.layers import LSTM, Dense, Conv1D, MaxPooling1D, Flatten, Input
 from statsmodels.tsa.arima.model import ARIMA
 from matplotlib import pyplot as plt
-from numpy import mean, std, array
 from sklearn.metrics import mean_squared_error
 from math import sqrt
 import sys
 from tqdm import tqdm
 from tqdm.keras import TqdmCallback
+
+# UNIVARIATE MODEL EVALUATION SUITE FOR 
+# ARIMA, MLP, LSTM, CNN
 
 # Function to create input-output sequences from univariate time series data
 def create_sequences(data, input_length):
@@ -25,7 +27,7 @@ def create_sequences(data, input_length):
 # Prepare input for the chosen model type
 def prepare_input(data, input_length, model_type):
     X, y = create_sequences(data, input_length)  # Create input-output pairs
-    
+
     if model_type == 'MLP':
         return X, y  # MLP expects 2D input
     elif model_type == 'LSTM' or model_type == 'CNN':
@@ -92,7 +94,7 @@ def walk_forward_validation(data, n_test, input_length, epochs, batch_size, mode
     predictions = []
     # Split dataset into training and test sets
     train, test = train_test_split(data, test_size=n_test/len(data), shuffle=False)
-    
+
     if model_type == 'ARIMA':
         history = [x for x in train]
         for i in tqdm(range(len(test)), desc='Forecasting', unit='step'):
@@ -113,32 +115,32 @@ def walk_forward_validation(data, n_test, input_length, epochs, batch_size, mode
             callbacks=[TqdmCallback(verbose=1)]
         )
         history = [x for x in train]
-        
+
         for i in tqdm(range(len(test)), desc='Forecasting', unit='step'):
             x_input = np.array(history[-input_length:]).reshape(1, input_length)
             if model_type == 'LSTM' or model_type == 'CNN':
                 x_input = x_input.reshape((1, input_length, 1))
-            
+
             yhat = model.predict(x_input, verbose=0)[0][0]
             predictions.append(yhat)
             history.append(test[i])
-    
+
     error = measure_rmse(test, predictions)
     return error
 
 # Train and evaluate each model independently
 def evaluate_final_models_separately(data, n_test, input_length, epochs, batch_size, n_models=5, model_type='LSTM', config=None):
     errors = []
-    
+
     for i in tqdm(range(n_models), desc='Models', unit='model'):
         error = walk_forward_validation(data, n_test, input_length, epochs, batch_size, model_type, config)
         errors.append(error)
         print(f'Model {i + 1}/{n_models} RMSE: {error:.3f}')
         sys.stdout.flush()
-    
+
     avg_error = np.mean(errors)
     print(f'Average RMSE across all models: {avg_error:.3f}')
-    
+
     # Plotting box and whisker chart for RMSE scores
     plt.boxplot(errors)
     plt.title(f'Box and Whisker Plot of RMSE Scores for {model_type}')
